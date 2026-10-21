@@ -1,30 +1,23 @@
 import pandas as pd
 import mysql.connector
 
-# 1. Conectar ao banco de dados
 conexao = mysql.connector.connect(
     host="127.0.0.1",
     user="root",
     password="",
     database="filmesdata"
 )
-# 2. Criar um objeto cursor para executar as queries
 cursor = conexao.cursor()
 
-# 3. Definir a query
 query = "SELECT * FROM filmesatual"
 
-# 4. Executar a query
 cursor.execute(query)
 
-# 5. Obter os resultados
 resultados = cursor.fetchall()
 
-# 6. Exibir os resultados
 for linha in resultados:
     print(linha)
 
-# 7. Fechar a conexão
 cursor.close()
 conexao.close()
 
@@ -56,17 +49,15 @@ if dados_filtrados:
     for gênero in dados_filtrados:
         print(Gênero)
 
-######################
-
 
 query_filmesatual = "SELECT * FROM ano"
-df_ano = pd.DataFrame(obter_dados_do_banco(query_ano), columns=['id_cliente', 'nome', 'email'])
-print(df_clientes)
+df_ano = pd.DataFrame(obter_dados_do_banco(query_ano), columns=['id_filme', 'titulo', 'ano'])
+print(df_filmes)
 
-df_pedidos = pd.read_csv('pedidos.csv')
-print(df_pedidos)
+df_filmes = pd.read_csv('filmesatual.csv')
+print(df_filmes)
 
-# Relacionando os DataFrames pela coluna 'id_cliente'
-df_relacionado = pd.merge(df_clientes, df_pedidos, on='id_cliente', how='inner')
+# Relacionando os DataFrames pela coluna 'id_filme'
+df_relacionado = pd.merge(df_filmes, df_ano, on='id_filme', how='inner')
 
 print(df_relacionado)
