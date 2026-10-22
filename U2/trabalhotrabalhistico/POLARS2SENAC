@@ -1,0 +1,126 @@
+from pathlib import Path
+
+import mysql.connector
+import polars as pl
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.set_theme(style="whitegrid")
+
+
+
+CONFIG_DB = {
+    "host": "localhost",
+    "user": "root",
+    "password": "10291914Sherlocked!",
+    "database": "filmesdata",
+}
+
+PASTA_DADOS = Path("dados")
+PASTA_DADOS.mkdir(exist_ok=True)
+
+def consultar(query: str, salvar_como: str | None = None) -> pl.DataFrame | None:
+    """Executa a query e devolve um DataFrame Polars (ou None em caso de erro)."""
+    conexao = None
+    cursor = None
+    try:
+        conexao = mysql.connector.connect(**CONFIG_DB)
+        cursor = conexao.cursor()
+        cursor.execute(query)
+
+        colunas = [c[0] for c in cursor.description]
+        linhas = cursor.fetchall()
+
+        df = pl.DataFrame(linhas, schema=colunas, orient="row")
+
+        if salvar_como:
+            df.write_parquet(PASTA_DADOS / salvar_como)
+        return df
+
+    except mysql.connector.Error as erro:
+        print(f"Erro ao conectar ao MySQL: {erro}")
+        return None
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conexao is not None and conexao.is_connected():
+            conexao.close()
+
+df_filmes = consultar(
+    "SELECT * FROM filmesatual WHERE `ano` > 2024",
+    salvar_como="filmes_2024.parquet",
+)
+df_filmes
+
+df_titulo = consultar(
+    "SELECT * FROM filmesatual WHERE `Título` = 'Parasita'",
+    salvar_como="filme_parasita.parquet",
+)
+df_titulo
+
+df_duracao = consultar(
+    "SELECT `Duração` FROM filmesatual ORDER BY `Duração` DESC",
+    salvar_como="duracao_filmes.parquet",
+)
+
+plt.figure(figsize=(10, 5))
+sns.histplot(df_duracao["Duração"].drop_nulls().to_list(), bins=20)
+plt.title("Distribuição da duração dos filmes")
+plt.xlabel("Duração")
+plt.show()
+
+df_duracao.head(10)
+
+df_genero = consultar(
+    """
+    SELECT `Gênero`, COUNT(*) AS quantidade
+    FROM filmesatual
+    GROUP BY `Gênero`
+    ORDER BY quantidade DESC
+    """,
+    salvar_como="filmes_por_genero.parquet",
+)
+
+top = df_genero.head(15)
+plt.figure(figsize=(10, 6))
+sns.barplot(x=top["quantidade"].to_list(), y=top["Gênero"].to_list())
+plt.title("Filmes por gênero")
+plt.xlabel("Quantidade")
+plt.show()
+
+df_pais = consultar(
+    """
+    SELECT `País`, COUNT(*) AS quantidade
+    FROM filmesatual
+    GROUP BY `País`
+    ORDER BY quantidade DESC
+    """,
+    salvar_como="filmes_por_pais.parquet",
+)
+
+top = df_pais.head(15)
+plt.figure(figsize=(10, 6))
+sns.barplot(x=top["quantidade"].to_list(), y=top["País"].to_list())
+plt.title("Filmes por país")
+plt.xlabel("Quantidade")
+plt.show()
+
+df_diretor = consultar(
+    """
+    SELECT `Direção`, COUNT(*) AS quantidade
+    FROM filmesatual
+    GROUP BY `Direção`
+    ORDER BY quantidade DESC
+    """,
+    salvar_como="filmes_por_diretor.parquet",
+)
+
+top = df_diretor.head(15)
+plt.figure(figsize=(10, 6))
+sns.barplot(x=top["quantidade"].to_list(), y=top["Direção"].to_list())
+plt.title("Filmes por diretor")
+plt.xlabel("Quantidade")
+plt.show()
+
+pl.read_parquet(PASTA_DADOS / "filmes_por_genero.parquet").head(10)

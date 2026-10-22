@@ -1,0 +1,114 @@
+from getpass import getpass
+import os
+import polars as pl
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sqlalchemy import create_engine
+from pathlib import Path
+
+PASTA_DADOS = Path("dados")
+PASTA_DADOS.mkdir(exist_ok=True)
+sns.set_theme(style="whitegrid")
+
+
+    "host": "127.0.0.1",
+    "user": "root",
+    "password": "",
+    "database": "filmesdata"
+
+engine = create_engine(
+    f"mysql+pymysql://{usuario}:{senha}@{servidor}/{banco}"
+)
+
+print("Conexão configurada!")
+
+def consultar(query: str, salvar_como: str | None = None) -> pl.DataFrame:
+    """Executa a query, retorna um DataFrame Polars e opcionalmente salva em parquet."""
+    df = pl.read_database(query=query, connection=engine)
+    if salvar_como:
+        df.write_parquet(PASTA_DADOS/salvar_como)
+    return df
+
+
+df_filmes = consultar(
+    """
+    SELECT *
+    FROM movie_metadata
+    WHERE title_year >= 2024
+    """,
+    salvar_como="filmes_2024.parquet",
+)
+df_filmes
+
+df_titulo = consultar(
+    """
+    SELECT *
+    FROM movie_metadata
+    WHERE movie_title LIKE 'Percy Jackson: Sea of Monsters%'
+    """,
+    salvar_como="filme_percy_jackson.parquet",
+)
+df_titulo
+
+df_duracao = consultar(
+    """
+    SELECT duration
+    FROM movie_metadata
+    ORDER BY duration DESC
+    """,
+    salvar_como="duracao_filmes.parquet",
+).drop_nulls()
+
+plt.figure(figsize=(10, 5))
+sns.histplot(data=df_duracao.to_pandas(), x="duration", bins=30)
+plt.title("Distribuição da duração dos filmes (min)")
+plt.show()
+
+
+df_genero = consultar(
+    """
+    SELECT genres, COUNT(*) AS quantidade
+    FROM movie_metadata
+    GROUP BY genres
+    ORDER BY quantidade DESC
+    """,
+    salvar_como="filmes_por_genero.parquet",
+)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(data=df_genero.head(15).to_pandas(), x="quantidade", y="genres")
+plt.title("Top 15 gêneros")
+plt.show()
+
+df_pais = consultar(
+    """
+    SELECT country, COUNT(*) AS quantidade
+    FROM movie_metadata
+    GROUP BY country
+    ORDER BY quantidade DESC
+    """,
+    salvar_como="filmes_por_pais.parquet",
+)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(data=df_pais.head(15).to_pandas(), x="quantidade", y="country")
+plt.title("Top 15 países")
+plt.show()
+
+df_diretor = consultar(
+    """
+    SELECT director_name, COUNT(*) AS quantidade
+    FROM movie_metadata
+    GROUP BY director_name
+    ORDER BY quantidade DESC
+    """,
+    salvar_como="filmes_por_diretor.parquet",
+)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(data=df_diretor.head(15).to_pandas(), x="quantidade", y="director_name")
+plt.title("Top 15 diretores")
+plt.show()
+
+df_teste = pl.read_parquet(PASTA_DADOS / "filmes_por_genero.parquet")
+df_teste.head(10)
